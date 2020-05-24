@@ -11,7 +11,7 @@
 import numpy as np
 import pickle
 
-BOARD_ROWS = 3
+BOARD_ROWS = 3  # 增加注释
 BOARD_COLS = 3
 BOARD_SIZE = BOARD_ROWS * BOARD_COLS
 
