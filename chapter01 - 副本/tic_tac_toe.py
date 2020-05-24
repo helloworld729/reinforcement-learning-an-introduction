@@ -8,6 +8,7 @@
 # declaration at the top                                              #
 #######################################################################
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 
@@ -17,6 +18,7 @@ BOARD_SIZE = BOARD_ROWS * BOARD_COLS
 
 
 class State:
+    # 初始化
     def __init__(self):
         # the board is represented by an n * n array,
         # 1 represents a chessman of the player who moves first,
@@ -27,15 +29,15 @@ class State:
         self.hash_val = None
         self.end = None
 
-    # compute the hash value for one state, it's unique
+    # 生成状态的哈希码
     def hash(self):
         if self.hash_val is None:
             self.hash_val = 0
-            for i in np.nditer(self.data):
+            for i in np.nditer(self.data):  # 数组元素迭代遍历
                 self.hash_val = self.hash_val * 3 + i + 1
         return self.hash_val
 
-    # check whether a player has won the game, or it's a tie
+    # 检查游戏是否结束，没有结束返回False，否则返回True，并将winner属性设置为1/-1
     def is_end(self):
         if self.end is not None:
             return self.end
@@ -78,14 +80,14 @@ class State:
         return self.end
 
     # @symbol: 1 or -1
-    # put chessman symbol in position (i, j)
+    # 模拟落子，返回新状态
     def next_state(self, i, j, symbol):
         new_state = State()
-        new_state.data = np.copy(self.data)
+        new_state.data = np.copy(self.data)  # 不会改变原数组
         new_state.data[i, j] = symbol
         return new_state
 
-    # print the board
+    # 打印游戏画面
     def print_state(self):
         for i in range(BOARD_ROWS):
             print('-------------')
@@ -103,20 +105,30 @@ class State:
 
 
 def get_all_states_impl(current_state, current_symbol, all_states):
+    """
+    生成状态字典，方法：基于当前状态和symbol生成新状态，并生成新状态的哈希值、
+                        结束标志存入字典，如果没有结束，换手继续下。所以不存在
+                        所有的位置都是1或者-1这种情况。
+
+    :param current_state: 前一状态
+    :param current_symbol: 符号（1/-1）
+    :param all_states: 状态字典
+    :return:更新后的状态字典
+    """
     for i in range(BOARD_ROWS):
         for j in range(BOARD_COLS):
-            if current_state.data[i][j] == 0:
-                new_state = current_state.next_state(i, j, current_symbol)
-                new_hash = new_state.hash()
+            if current_state.data[i][j] == 0:  # 检查是否为未落子的pos
+                new_state = current_state.next_state(i, j, current_symbol)  # 落子
+                new_hash = new_state.hash()  # 新state的哈希
                 if new_hash not in all_states:
                     is_end = new_state.is_end()
-                    all_states[new_hash] = (new_state, is_end)
+                    all_states[new_hash] = (new_state, is_end)  # key为哈希，value为状态、结束标志元组
                     if not is_end:
-                        get_all_states_impl(new_state, -current_symbol, all_states)
+                        get_all_states_impl(new_state, -current_symbol, all_states)  # 换手
 
 
 def get_all_states():
-    current_symbol = 1
+    current_symbol = 1  # 先手
     current_state = State()
     all_states = dict()
     all_states[current_state.hash()] = (current_state, current_state.is_end())
@@ -125,10 +137,10 @@ def get_all_states():
 
 
 # all possible board configurations
-all_states = get_all_states()
+all_states = get_all_states()  # 5478种
 
 
-class Judger:
+class Judger:  # forward
     # @player1: the player who will move first, its chessman will be 1
     # @player2: another player with a chessman -1
     def __init__(self, player1, player2):
@@ -153,16 +165,16 @@ class Judger:
     # @print_state: if True, print each board during the game
     def play(self, print_state=False):
         alternator = self.alternate()
-        self.reset()
-        current_state = State()
+        self.reset()  # 玩家初始化
+        current_state = State()  # 状态初始化
         self.p1.set_state(current_state)
         self.p2.set_state(current_state)
         if print_state:
             current_state.print_state()
         while True:
-            player = next(alternator)
-            i, j, symbol = player.act()
-            next_state_hash = current_state.next_state(i, j, symbol).hash()
+            player = next(alternator)  # 选择玩家
+            i, j, symbol = player.act()  # 落子选择，返回坐标和symbol
+            next_state_hash = current_state.next_state(i, j, symbol).hash()  # 新状态
             current_state, is_end = all_states[next_state_hash]
             self.p1.set_state(current_state)
             self.p2.set_state(current_state)
@@ -177,7 +189,7 @@ class Player:
     # @step_size: the step size to update estimations
     # @epsilon: the probability to explore
     def __init__(self, step_size=0.1, epsilon=0.1):
-        self.estimations = dict()
+        self.estimations = dict()  # 状态哈希：价值
         self.step_size = step_size
         self.epsilon = epsilon
         self.states = []
@@ -185,7 +197,7 @@ class Player:
         self.symbol = 0
 
     def reset(self):
-        self.states = []
+        self.states = []  # 为什么是数组呢？因为backup的时候会用到
         self.greedy = []
 
     def set_state(self, state):
@@ -213,16 +225,16 @@ class Player:
 
         for i in reversed(range(len(states) - 1)):
             state = states[i]
-            td_error = self.greedy[i] * (
+            td_error = self.greedy[i] * (  # 随机探索不产生学习
                 self.estimations[states[i + 1]] - self.estimations[state]
             )
             self.estimations[state] += self.step_size * td_error
 
     # choose an action based on the state
-    def act(self):
+    def act(self):  # 最终返回坐标和symbol
         state = self.states[-1]
-        next_states = []
-        next_positions = []
+        next_states = []  # 状态哈希码
+        next_positions = []  # 位置坐标
         for i in range(BOARD_ROWS):
             for j in range(BOARD_COLS):
                 if state.data[i, j] == 0:
@@ -234,9 +246,9 @@ class Player:
             action = next_positions[np.random.randint(len(next_positions))]
             action.append(self.symbol)
             self.greedy[-1] = False
-            return action
+            return action  # 返回坐标和symbol
 
-        values = []
+        values = []  # 状态值，pos元组
         for hash_val, pos in zip(next_states, next_positions):
             values.append((self.estimations[hash_val], pos))
         # to select one of the actions of equal value at random due to Python's sort is stable
@@ -265,6 +277,7 @@ class HumanPlayer:
         self.symbol = None
         self.keys = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c']
         self.state = None
+        self.evaluation = None
 
     def reset(self):
         pass
@@ -275,8 +288,28 @@ class HumanPlayer:
     def set_symbol(self, symbol):
         self.symbol = symbol
 
+    def situation_assessment(self):
+        """self.state->候选状态->价值评判->输出"""
+        cans = []
+        for i in range(BOARD_ROWS):
+            for j in range(BOARD_COLS):
+                if self.state.data[i][j] == 0:
+                    new_state = self.state.next_state(i, j, 1)
+                    current_value = self.evaluation[new_state.hash()]
+                    cans.append((current_value, self.keys[3*i+j]))
+        cans.sort(reverse=True)
+        self.plot(cans)
+
+    @staticmethod
+    def plot(cans):
+        value, act = zip(*cans)
+        color = ['r'] + ['b'] * (len(act) - 1)
+        plt.bar(act, value, width=0.5, color=color)
+        plt.show()
+
     def act(self):
         self.state.print_state()
+        self.situation_assessment()
         key = input("Input your position:")
         data = self.keys.index(key)
         i = data // BOARD_COLS
@@ -327,20 +360,24 @@ def compete(turns):
 # So we test whether the AI can guarantee at least a tie if it goes second.
 def play():
     while True:
-        player1 = HumanPlayer()
+        human = HumanPlayer()
         player2 = Player(epsilon=0)
-        judger = Judger(player1, player2)
+        judger = Judger(human, player2)
         player2.load_policy()
+        ############# 态势评估 #############
+        with open('policy_first.bin', 'rb') as f:
+            human.evaluation = pickle.load(f)
+        ####################################
         winner = judger.play()
         if winner == player2.symbol:
             print("You lose!")
-        elif winner == player1.symbol:
+        elif winner == human.symbol:
             print("You win!")
         else:
-            print("It is a tie!")
+            print("It is a draw!")
 
 
 if __name__ == '__main__':
-    train(int(1e5))
+    # train(int(1e3))
     compete(int(1e3))
     play()
