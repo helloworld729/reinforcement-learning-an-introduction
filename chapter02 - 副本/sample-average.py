@@ -20,6 +20,7 @@ class bandit():
         self.ground_mean = np.random.randn(self.k)  # 均值服从标准分布
         self.count = np.zeros(self.k)
         self.estimate = np.zeros(self.k)  # 不同摇臂的价值估计
+        self.best_action = np.argmax(self.ground_mean)  # int
 
     def action(self):
         if np.random.rand() < self.epsilon:
@@ -43,6 +44,7 @@ class bandit():
 
 def simulate(bans, run=2000, steps=1000):
     rewards = np.zeros((len(bans), run, steps))
+    is_best_action = np.zeros((len(bans), run, steps))
     for i, ban in enumerate(bans):
         for j in trange(run):
             ban.reset()
@@ -51,7 +53,9 @@ def simulate(bans, run=2000, steps=1000):
                 reward = ban.get_reward(act)
                 ban.update_estimate(act, reward)
                 rewards[i, j, k] = reward
-    return rewards.mean(1)
+                if act == ban.best_action:
+                    is_best_action[i, j, k] = 1
+    return rewards.mean(1), is_best_action.mean(1)
 
 
 def graph2_2():
@@ -61,15 +65,23 @@ def graph2_2():
     bans = [bandit(episilon=e) for e in episilon]
 
     # rewards_mean维度：len(episilon), 1000
-    rewards_mean = simulate(bans, run=2000, steps=1000)
+    plt.subplot(2, 1, 1)
+    rewards_mean, best_action_mean = simulate(bans, run=2000, steps=1000)
     for eps, reward in zip(episilon, rewards_mean):
         # rewards 包含1000个数据
         plt.plot(reward, label='epsilon = %.02f' % (eps))
     plt.xlabel('steps')
     plt.ylabel('average reward')
     plt.legend()
+
+    plt.subplot(2, 1, 2)
+    for eps, counts in zip(episilon, best_action_mean):
+        plt.plot(counts, label='epsilon = %.02f' % (eps))
+    plt.xlabel('steps')
+    plt.ylabel('% optimal action')
+    plt.legend()
+    plt.savefig('./2_2.png')
     plt.show()
-    plt.savefig('2_2.png')
     plt.close()
 
 
