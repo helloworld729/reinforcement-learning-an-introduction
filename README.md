@@ -103,4 +103,7 @@ If you want to contribute some missing examples or fix some bugs, feel free to o
 
 Following are missing figures/examples:
 
-* Figure 12.14: The effect of λ 
+* Figure 12.14: The effect of λ <br>
+note： <br>
+forked from：https://github.com/ShangtongZhang/reinforcement-learning-an-introduction <br>
+push to：https://github.com/helloworld729/reinforcement-learning-an-introduction
