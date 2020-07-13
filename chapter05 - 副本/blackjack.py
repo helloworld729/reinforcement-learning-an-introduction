@@ -16,15 +16,6 @@ for i in range(12, 20):
 POLICY_PLAYER[20] = ACTION_STAND   # >=20就stand
 POLICY_PLAYER[21] = ACTION_STAND
 
-# function form of target policy of player
-# def target_policy_player(usable_ace_player, player_sum, dealer_card):
-#     return POLICY_PLAYER[player_sum]
-
-# function form of behavior policy of player
-# def behavior_policy_player(usable_ace_player, player_sum, dealer_card):
-#     if np.random.binomial(1, 0.5) == 1:
-#         return ACTION_STAND
-#     return ACTION_HIT
 
 # 庄家策略
 POLICY_DEALER = np.zeros(22)
@@ -71,11 +62,10 @@ def useable_A(lst):
 # print(useable_A([11, 11]))  # (True, 20)
 
 
-
 def play():
     """ 模拟游戏，返回：是否有可用的A、玩家手牌之和、庄家明牌 """
     #################### 初始化 ##########################
-    history = []
+    history = []  # 存储玩家手牌
     player_card = []
     dealer_card = []
     #################### 每人发2张牌 ##########################
@@ -98,9 +88,17 @@ def play():
     #################### natural/draw ##########################
     if p_score == 21 and d_score == 21:
         draw = True
+        if p_useable:
+            print("奖励值：{}，玩家：{}， 庄家：{}".format(0, player_card, dealer_card))
+        else:
+            print("无可用，玩家：{}， 庄家：{}".format(player_card, dealer_card))
         return [[p_useable, 21, open, 0]]
     elif p_score == 21:
         natural = True
+        if p_useable:
+            print("奖励值：{}，玩家：{}， 庄家：{}".format(1, player_card, dealer_card))
+        else:
+            print("无可用，玩家：{}， 庄家：{}".format(player_card, dealer_card))
         return [[p_useable, 21, open, 1]]
     #################### 玩家阶段 ##########################
     while True:
@@ -113,6 +111,10 @@ def play():
             history.append(p_score)
         if p_score > 21:
             bust = True
+            if p_useable:
+                print("奖励值：{}，玩家：{}， 庄家：{}".format(-1, player_card, dealer_card))
+            else:
+                print("无可用，玩家：{}， 庄家：{}".format(player_card, dealer_card))
             return [[False, i, open, -1] for i in history]
     #################### 庄家阶段 ##########################
     while True:
@@ -123,6 +125,10 @@ def play():
         d_useable, d_score = useable_A(dealer_card)
         if d_score > 21:
             bust = True
+            if p_useable:
+                print("奖励值：{}，玩家：{}， 庄家：{}".format(1, player_card, dealer_card))
+            else:
+                print("无可用，玩家：{}， 庄家：{}".format(player_card, dealer_card))
             return [[p_useable, i, open, 1] for i in history]
 
     #################### 判决阶段 ##########################
@@ -132,7 +138,10 @@ def play():
         reward = -1
     else:
         reward = 1
-    # print("奖励值：{}，玩家：{}， 庄家：{}".format(reward, player_card, dealer_card))
+    if p_useable:
+        print("奖励值：{}，玩家：{}， 庄家：{}".format(reward, player_card, dealer_card))
+    else:
+        print("无可用，玩家：{}， 庄家：{}".format(player_card, dealer_card))
     # print([[p_useable, i, open, reward]for i in history])
     return [[p_useable, i, open, reward]for i in history]
 
@@ -146,10 +155,7 @@ def monte_carlo_on_policy(episodes):
 
     for i in tqdm(range(0, episodes)):
         # 返回奖励值、游戏记录
-        # usable_ace, player_sum, open, reward, player_card, dealer_card = play()
-        # print("奖励值：{}，玩家：{}， 庄家：{}".format(reward, player_card, dealer_card))
         for usable_ace, player_sum, open, reward in play():
-
             assert player_sum <= 21
             assert open <= 10
             player_sum -= 12
@@ -163,11 +169,12 @@ def monte_carlo_on_policy(episodes):
                 states_no_usable_ace_count[player_sum, open] += 1
                 states_no_usable_ace[player_sum, open] += reward
     # 返回平均值（某个状态获得的奖励和/状态出现的次数）
+    # print(states_usable_ace)
     return states_usable_ace / states_usable_ace_count, states_no_usable_ace / states_no_usable_ace_count
 
 
 def figure_5_1():
-    states_usable_ace_1, states_no_usable_ace_1 = monte_carlo_on_policy(1000000)
+    states_usable_ace_1, states_no_usable_ace_1 = monte_carlo_on_policy(50000)
 
     states = [states_usable_ace_1,
               states_no_usable_ace_1]
@@ -175,17 +182,14 @@ def figure_5_1():
     titles = ['Usable Ace, 500000 Episodes',
               'No Usable Ace, 500000 Episodes',]
 
-    plt.matshow(states[0])
-    plt.colorbar()
-    plt.title(titles[0])
-    plt.xlabel("dealer showing")
-    plt.ylabel("palyer sum")
-    # plt.xlim([1, 10])
-    # plt.ylim([12, 21])
-    # plt.xticks(range(2, 12))
-    # plt.yticks(range(12, 22))
-    # plt.xlabel(range(2, 12))
-    # plt.ylabel(range(12, 22))
+    fig = sns.heatmap(np.flipud(states[0]), cmap="YlGnBu", xticklabels=range(1, 11),
+                      yticklabels=list(reversed(range(12, 22))), annot=True)
+    fig.set_ylim(10.0, 0)
+    fig.set_xlim(10.0, 0)
+    fig.set_ylabel('player sum', fontsize=10)
+    fig.set_xlabel('dealer showing', fontsize=10)
+    fig.set_title(titles[0], fontsize=10)
+
     plt.show()
     plt.close()
 
